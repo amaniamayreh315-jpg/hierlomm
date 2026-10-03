@@ -140,3 +140,7 @@ textarea.export{font-family:var(--mono);font-size:11px;height:140px;margin:0 14p
 .btn.mic{display:inline-flex;align-items:center;gap:6px;flex:none}
 .btn.mic[aria-pressed="true"]{background:var(--red);border-color:var(--red);color:var(--surface)}
 @media (prefers-reduced-motion:no-preference){.btn.mic[aria-pressed="true"]{animation:pulse 1.2s ease-in-out infinite}}
+
+/* Step-by-step guide */
+.guide{display:flex;gap:12px;align-items:center;flex-wrap:wrap;background:var(--accent);color:var(--accent-ink);border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:16px;line-height:1.4}
+.guide .gstep{font-family:var(--mono);font-size:12px;letter-spacing:.06em;text-transform:uppercase;background:var(--accent-ink);color:var(--accent);border-radius:999px;padding:3px 10px;flex:none}

@@ -75,8 +75,9 @@ function unlockSpeech() {
 const Voice = {
   convo: null, speaking: false,
   async start({ phase, context, first, tools = {}, onLine, onMode }) {
-    await this.stop();
+    // No voice agent: speak right away, still inside the tap, so iPad and iPhone allow the sound.
     if (!CONFIG.voice) { if (first) this.say(first, onLine); return false; }
+    await this.stop();
     const s = HAS_SERVER ? await api("/api/session") : { agentId: CONFIG.agentId };
     const { Conversation } = await import("https://esm.sh/@elevenlabs/client");
     this.convo = await Conversation.startSession({
@@ -97,18 +98,21 @@ const Voice = {
   mute(on) { try { this.convo?.setMicMuted?.(on); } catch {} },
   say(text, onLine, after) {
     onLine?.("agent", text);
+    let done = false;
+    const finish = () => { if (done) return; done = true; this.speaking = false; after?.(); };
     try {
-      speechSynthesis.cancel();
+      if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel();
       const u = new SpeechSynthesisUtterance(text);
       u.rate = 1.02;
-      u.onstart = () => { this.speaking = true; };
       u.lang = (PROFILE && PROFILE.lang) || "en-US";
-      u.onend = () => { this.speaking = false; after?.(); };
-      u.onerror = () => { this.speaking = false; };
+      u.onstart = () => { this.speaking = true; };
+      u.onend = finish; u.onerror = finish;
       speechSynthesis.speak(u);
+      this.speaking = true;
     } catch {}
+    setTimeout(finish, 2000 + String(text).length * 90);   // some browsers never report the end
   },
-  async stop() { try { await this.convo?.endSession(); } catch {} this.convo = null; this.speaking = false; try { speechSynthesis.cancel(); } catch {} }
+  async stop() { try { await this.convo?.endSession(); } catch {} this.convo = null; this.speaking = false; try { if (speechSynthesis.speaking || speechSynthesis.pending) speechSynthesis.cancel(); } catch {} }
 };
 
 // ---------- microphone (browser speech recognition, used when there is no voice agent) ----------
@@ -143,6 +147,30 @@ const Mic = {
   reset() { if (this.btn) { this.btn.setAttribute("aria-pressed", "false"); this.btn.querySelector("span").textContent = "Talk"; } this.rec = null; this.btn = null; }
 };
 function showMicNote(note, msg) { if (note) { note.hidden = false; note.textContent = msg; } }
+
+// ---------- on-screen guide: tells the person exactly what to tap next ----------
+const GUIDE = {
+  e1: ["Step 1 of 6", "Tap the green Start session button."],
+  e2: ["Step 2 of 6", "Change the Cost center of invoice 4471 to 0400. Then stop touching the screen and wait 3 seconds."],
+  e3: ["Step 3 of 6", "The apprentice asks why. Answer out loud, or tap Talk, or type and tap Send."],
+  e4: ["Step 4 of 6", "Type an asset number like AN-1, tap Post invoice. On the next invoice (4472) tap Hold, then wait."],
+  e5: ["Step 5 of 6", "Answer the new question the same way."],
+  e6: ["Step 6 of 6", "Tap Finish task, build Work Map."],
+  m1: ["Work Map", "Tap step 3 to see your own words. Then tap Start debrief."],
+  m2: ["Debrief", "Answer the questions in the boxes on the right, then tap Yes, that is how it works."],
+  m3: ["Done", "Your Work Map is confirmed. Tap Switch user at the top, sign in as The new hire, and practise in Teach."],
+  l1: ["Step 1 of 4", "Tap the green Start tutor button."],
+  l2: ["Step 2 of 4", "Invoice 5102 is open. Tap Post invoice without changing anything, and see what happens."],
+  l3: ["Step 3 of 4", "Fix it: set Cost center to 0400, type an asset number, then tap Post invoice again."],
+  l4: ["Step 4 of 4", "Finish the queue. The tutor stops you whenever the expert would."],
+  l5: ["Done", "Round complete. Your progress is listed on the right."]
+};
+let guideKey = "";
+function guide(key) {
+  const g = GUIDE[key]; if (!g) return;
+  guideKey = key;
+  $("guide").hidden = false; $("gStep").textContent = g[0]; $("gText").textContent = g[1];
+}
 
 // ---------- shared ERP widget ----------
 const snapshot = c => ({ invoice: c.id, supplier: c.supplier, amount: c.amount, category: c.category, costCenter: c.costCenter, asset: c.asset, status: c.status });
@@ -310,6 +338,7 @@ function capTick() {
       cap.asked.push({ at: Date.now(), kind: q.kind });
       capEvent("question_moment", { invoice: e.invoice, question: q.text, kind: q.kind, about: e.t });
       cap.lastQuestion = q.text;
+      guide(guideKey === "e4" ? "e5" : guideKey === "e2" ? "e3" : guideKey);
       $("cSlot").innerHTML = `<div class="card"><small>Asked at a natural pause · ${q.kind}</small><span class="qtext">${esc(q.text)}</span><div class="actions" style="margin-top:8px"><button class="btn small hear"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5zM15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></svg> Hear it again</button></div></div>`;
       $("cSlot").querySelector(".hear").onclick = () => Voice.say(q.text);
       $("cSlot").scrollIntoView({ block: "nearest", behavior: "smooth" });
@@ -326,13 +355,13 @@ setInterval(capTick, 250);
 const captureTools = {
   log_answer: async ({ kind = "reason", quote = "", about = "" }) => {
     S.answers.push({ s: secs(), t: fmt(secs()), phase: "capture", kind, quote: redact(quote), about }); save();
+    guide(guideKey === "e3" ? "e4" : guideKey === "e5" ? "e6" : guideKey);
     return "logged";
   },
   off_record: async ({ on }) => { setOff(on === true || on === "true"); return cap.off ? "Capture paused" : "Capture resumed"; }
 };
 
 $("cStart").onclick = async () => {
-  unlockSpeech();
   if (cap.running) return;
   S = { ...fresh(), workmap: S.workmap };
   S.t0 = Date.now(); save();
@@ -340,11 +369,12 @@ $("cStart").onclick = async () => {
   cERP.load(EXPERT_CASES);
   cap.running = true; cap.asked = []; cap.pending = null; cap.last = Date.now();
   $("cStart").textContent = "Recording…"; $("cStart").disabled = true;
+  guide("e2");
   try {
     const voiced = await Voice.start({
       phase: "capture",
       context: `${CONFIG.expert} processes month-end supplier invoices in a sandbox ERP. Screen events arrive as [SCREEN] updates.`,
-      first: `Hi ${CONFIG.expert}, I'm your apprentice. Work as usual. I'll stay quiet and only ask when you pause.`,
+      first: `Hi ${CONFIG.expert}, I'm your apprentice. Work as usual. Change the cost center on invoice 4471, then pause, and I'll ask you why.`,
       tools: captureTools, onLine: onCapLine
     });
     $("cAnswerRow").hidden = voiced;
@@ -360,6 +390,7 @@ $("cSend").onclick = () => {
   S.answers.push({ s: secs(), t: fmt(secs()), phase: "capture", kind: "reason", question: cap.lastQuestion || "", quote: redact(v) }); save();
   $("cAnswer").value = "";
   if (!Voice.convo) Voice.say(`Got it, thanks ${CONFIG.expert}.`, onCapLine);
+  guide(guideKey === "e3" ? "e4" : guideKey === "e5" ? "e6" : guideKey);
 };
 $("cAnswer").addEventListener("keydown", e => { if (e.key === "Enter") $("cSend").click(); });
 
@@ -433,7 +464,7 @@ $("cFinish").onclick = async () => {
       ? await api("/api/workmap", { expert: CONFIG.expert, events: S.events.map(({ snapshot, ...e }) => ({ ...e, snapshot })), transcript: S.transcript, answers: S.answers })
       : draftFromSample();
   } catch (e) { alert2("Work Map failed: " + e.message + ". Showing the sample instead."); S.workmap = draftFromSample(); }
-  save(); selected = 0; renderMap(); openDebrief();
+  save(); selected = 0; renderMap(); openDebrief(); guide("m1");
 };
 
 function draftFromSample() {
@@ -548,9 +579,8 @@ function openDebrief() {
   $("dbConfirmRow").hidden = !!wm.confirmed;
 }
 $("wmDebrief").onclick = async () => {
-  unlockSpeech();
   if (!S.workmap) { alert2("Build or load a Work Map first."); return; }
-  openDebrief();
+  openDebrief(); guide("m2");
   const wm = S.workmap, oq = wm.open_questions || [];
   $("dbDot").className = "dot speak"; $("dbText").textContent = "Debrief running";
   try {
@@ -595,7 +625,7 @@ async function finalize(confirmed) {
   } catch (e) { $("dbText").textContent = "Update failed: " + e.message; return; }
   save(); await Voice.stop();
   $("dbDot").className = "dot ask"; $("dbText").textContent = confirmed ? `Confirmed by ${CONFIG.expert}. The tutor can use this map now.` : "Saved, not confirmed yet";
-  renderMap(); openDebrief();
+  renderMap(); openDebrief(); if (confirmed) guide("m3");
 }
 
 // =====================================================================
@@ -648,6 +678,7 @@ function teachAction(c, action) {
       <blockquote>“${esc(broken.quote)}”</blockquote>
       <div class="actions"><button class="btn small hear" id="tHear"><svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5zM15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"/></svg> Hear it</button><button class="btn" id="tReplay">Replay ${esc(TE())}'s screen moment</button></div><div id="tReplayBox" style="margin-top:8px"></div></div>`;
     $("tReplay").onclick = () => replay(broken.id);
+    guide("l3");
     $("tHear").onclick = () => Voice.say(`${TE()} would stop here. Why do you think? ${TE()} says: ${broken.quote}`);
     $("tSlot").scrollIntoView({ block: "nearest", behavior: "smooth" });
     if (Voice.convo) Voice.cue(`[STOP] The trainee tried to ${action === "post" ? "post" : action} invoice ${c.id} (${c.desc}, ${euro(c.amount)}, cost center ${c.costCenter}, asset "${c.asset || "none"}"). This breaks: ${broken.title}. ${TE()}'s words: "${broken.quote}". Say "${TE()} would stop here. Why do you think?", wait, then explain with her words.`);
@@ -660,6 +691,7 @@ function teachAction(c, action) {
   }
   if (rel.length) {
     const r = rel[0];
+    if (guideKey === "l3" || guideKey === "l2") guide("l4");
     tut.keep = `<div class="card"><small>Right call</small>That's what ${esc(TE())} does. “${esc(r.quote)}”</div>`;
     $("tSlot").innerHTML = tut.keep;
     if (Voice.convo) Voice.cue(`[CORRECT] The trainee handled invoice ${c.id} correctly (${r.title}). Praise in under 10 words and add ${TE()}'s reason in her words.`);
@@ -684,6 +716,7 @@ function renderMastery() {
   }).join("");
 }
 function teachDone() {
+  guide("l5");
   const rules = rulesNow();
   const good = rules.filter(r => tut.mastery[r.id] === "mastered").map(r => r.title);
   const work = rules.filter(r => ["practice", "fixed"].includes(tut.mastery[r.id])).map(r => r.title);
@@ -694,15 +727,15 @@ function teachDone() {
 function teachReset() { tut.mastery = {}; tut.opened = new Set(); tERP.load(TRAINEE_CASES); $("tSlot").innerHTML = ""; $("tLog").innerHTML = ""; renderMastery(); }
 $("tReset").onclick = teachReset;
 $("tStart").onclick = async () => {
-  unlockSpeech();
   teachReset(); tut.on = true; if (!S.t0) S.t0 = Date.now();
   $("tDot").className = "dot speak"; $("tStatus").textContent = "Tutor watching. Guardrails are checked before every save";
+  guide("l2");
   const wm = S.workmap || SAMPLE;
   try {
     const voiced = await Voice.start({
       phase: "tutor",
       context: JSON.stringify({ steps: (wm.steps || []).map(s => `${s.n}. ${s.title}: ${s.decision}. Why: ${s.reason || "?"}`), guardrails: rulesNow().map(g => `${g.title}: "${g.quote}"`) }),
-      first: `Hi ${CONFIG.learner || "there"}! I learned this process from ${TE()}. Work the queue the way you think is right. I'll step in if something looks off.`,
+      first: `Hi ${CONFIG.learner || "there"}! I learned this job from ${TE()}. Try posting invoice 5102. I'll step in if something looks off.`,
       tools: { replay_moment: async ({ rule_id }) => { replay(rule_id); return "Shown on screen"; } },
       onLine: (who, text) => logRow($("tLog"), fmt(secs()), (who === "agent" ? "tutor: " : "you: ") + text, "said")
     });
@@ -722,6 +755,7 @@ $("tAnswer").addEventListener("keydown", e => { if (e.key === "Enter") $("tSend"
 // tabs + boot
 // =====================================================================
 function showWelcome() {
+  $("guide").hidden = true;
   for (const n of ["capture", "map", "teach"]) $("view-" + n).hidden = true;
   $("view-welcome").hidden = false; $("tabs").hidden = true; $("who").hidden = true;
   if (PROFILE) { $("wName").value = PROFILE.name; $("wEmail").value = PROFILE.email; if (PROFILE.lang) $("wLang").value = PROFILE.lang; }
@@ -743,6 +777,8 @@ $("wForm").addEventListener("submit", e => {
 });
 $("wName").addEventListener("input", () => $("wNameErr").textContent = "");
 $("wEmail").addEventListener("input", () => $("wEmailErr").textContent = "");
+$("wSound").onclick = () => Voice.say(`Hello ${$("wName").value.trim() || "there"}, can you hear me?`);
+$("cSound").onclick = () => Voice.say(`Hello ${CONFIG.expert}, can you hear me?`);
 $("whoSwitch").onclick = async () => { await Voice.stop(); cap.running = false; $("cStart").disabled = false; $("cStart").textContent = "Start session"; showWelcome(); };
 
 function showTab(name) {
@@ -751,8 +787,9 @@ function showTab(name) {
     $("view-" + n).hidden = n !== name;
     $("tab-" + n).setAttribute("aria-selected", String(n === name));
   }
-  if (name === "map") renderMap();
-  if (name === "teach") renderMastery();
+  if (name === "map") { renderMap(); guide(S.workmap?.confirmed ? "m3" : "m1"); }
+  if (name === "teach") { renderMastery(); if (!tut.on) guide("l1"); }
+  if (name === "capture" && !cap.running) guide("e1");
   try { history.replaceState(null, "", "#" + name); } catch {}
 }
 $("tab-capture").onclick = () => showTab("capture");

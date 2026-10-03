@@ -19,6 +19,7 @@
   </nav>
 </header>
 <div class="banner" id="modeBanner" hidden></div>
+<div class="guide" id="guide" hidden><span class="gstep" id="gStep"></span><span id="gText"></span></div>
 
 <!-- 0. WELCOME -->
 <main id="view-welcome" hidden>
@@ -44,6 +45,8 @@
         <label class="role"><input type="radio" name="role" value="learner"><span><b>The new hire</b>The tutor teaches me with the expert's Work Map</span></label>
       </fieldset>
       <button class="btn primary big" type="submit">Enter</button>
+      <button class="btn" type="button" id="wSound">Test sound</button>
+      <p class="note" style="padding:0">No sound? Turn the volume up and switch off silent mode.</p>
       <p class="note" style="padding:0">Saved on this device only. Nothing is sent anywhere.</p>
     </form>
   </section>
@@ -61,6 +64,7 @@
         <button class="btn primary" id="cStart">Start session</button>
         <button class="btn" id="cShare">Share screen</button>
         <button class="btn" id="cOff" aria-pressed="false">Off the record</button>
+        <button class="btn" id="cSound">Test sound</button>
       </div>
       <div id="cSlot"></div>
       <div class="answer" id="cAnswerRow" hidden><button class="btn mic" id="cMic" aria-pressed="false"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5"/></svg><span>Talk</span></button><input id="cAnswer" placeholder="Tap Talk or type your answer"><button class="btn" id="cSend">Send</button></div>
