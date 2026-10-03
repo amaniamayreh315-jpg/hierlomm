@@ -1,0 +1,33 @@
+{
+  "sample": true,
+  "title": "Month-end supplier invoices",
+  "expert": "Sabine",
+  "confirmed": true,
+  "confirmed_at": "08:55",
+  "corrections_applied": ["The December hold applies to Schäfer only, not every supplier. The controller releases it after checking the November statement."],
+  "teachback": "You start with the oldest due invoices. For each one you check the PO and goods receipt. Equipment over €5,000 always goes to capex 0400, and you never book capex without an asset number from the plant. Schäfer double-bills every December, so you hold their December invoices until the controller has checked the November statement. Anything from the Czech subsidiary in Brno goes to the controller for a second approval. Small invoices from known suppliers you just post. If you don't know a supplier, you stop and ask the controller.",
+  "steps": [
+    {"n":1,"t":"00:18","invoice":null,"title":"Start with the oldest due invoices","screen":"Open invoices list, sorted by due date","decision":"Works the queue oldest-due first","reason":"I always start with whatever hits the close first.","reason_t":"00:24","judgment_call":false,"guardrail_ids":[]},
+    {"n":2,"t":"01:05","invoice":"4471","title":"Check PO and goods receipt","screen":"Invoice 4471, Kraus Maschinenbau, €7,850","decision":"PO and goods receipt match, continue","reason":"No goods receipt, no payment. Simple.","reason_t":"01:12","judgment_call":false,"guardrail_ids":[]},
+    {"n":3,"t":"03:12","invoice":"4471","title":"Code the invoice to a cost center","screen":"Invoice 4471, cost center field","decision":"Re-coded from opex (4711) to capex (0400)","reason":"Equipment over €5,000 is always capex.","reason_t":"03:15","judgment_call":true,"guardrail_ids":["g1"]},
+    {"n":4,"t":"03:40","invoice":"4471","title":"Add the asset number","screen":"Invoice 4471, asset number field","decision":"Entered asset number AN-2026-0187","reason":"No asset number, no capex booking. I get it from the plant first.","reason_t":"03:46","judgment_call":false,"guardrail_ids":["g2"]},
+    {"n":5,"t":"05:02","invoice":"4472","title":"Hold the Schäfer December invoice","screen":"Invoice 4472, Schäfer Logistik, December freight","decision":"Put on hold instead of posting","reason":"They double-bill every December. I hold it until the November statement is checked.","reason_t":"05:06","judgment_call":true,"guardrail_ids":["g3"]},
+    {"n":6,"t":"06:15","invoice":"4473","title":"Send intercompany invoices for second approval","screen":"Invoice 4473, Brno Components s.r.o., country CZ","decision":"Sent to the controller for a second approval","reason":"Anything from Brno goes to the controller. It's intercompany.","reason_t":"06:19","judgment_call":true,"guardrail_ids":["g4"]},
+    {"n":7,"t":"07:30","invoice":"4474","title":"Post the routine invoices","screen":"Invoice 4474, Bürowelt, €186","decision":"Posted directly","reason":"Under a thousand and a known supplier, I just post it.","reason_t":"07:33","judgment_call":false,"guardrail_ids":[]}
+  ],
+  "guardrails": [
+    {"id":"g1","kind":"limit","title":"Equipment over €5,000 is capex","quote":"Equipment over €5,000 is always capex.","quote_t":"03:15","moment_t":"03:12",
+     "when":[{"field":"category","op":"eq","value":"equipment"},{"field":"amount","op":"gt","value":5000}],
+     "require":[{"field":"costCenter","op":"eq","value":"0400"}]},
+    {"id":"g2","kind":"limit","title":"No asset number, no capex booking","quote":"No asset number, no capex booking. I get it from the plant first.","quote_t":"03:46","moment_t":"03:40",
+     "when":[{"field":"costCenter","op":"eq","value":"0400"}],
+     "require":[{"field":"asset","op":"notempty"}]},
+    {"id":"g3","kind":"exception","title":"Hold Schäfer invoices in December","quote":"They double-bill every December. I hold it until the November statement is checked.","quote_t":"05:06","moment_t":"05:02",
+     "when":[{"field":"supplier","op":"contains","value":"Schäfer"},{"field":"month","op":"eq","value":12}],
+     "require":[{"action":"hold"}]},
+    {"id":"g4","kind":"stop_and_ask","title":"Brno invoices need a second approval","quote":"Anything from Brno goes to the controller. It's intercompany.","quote_t":"06:19","moment_t":"06:15",
+     "when":[{"field":"country","op":"eq","value":"CZ"}],
+     "require":[{"action":"approve"}]}
+  ],
+  "open_questions": []
+}

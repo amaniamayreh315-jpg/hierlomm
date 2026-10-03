@@ -1,0 +1,12 @@
+{
+  "name": "heirloom",
+  "version": "1.0.0",
+  "description": "The AI apprentice that learns why. Hack-Nation x ElevenLabs Challenge 01.",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Heirloom</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,600;1,9..144,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="top">
+  <div class="logo"><b>Heirloom</b><span>The AI apprentice that learns why</span></div>
+  <div class="who" id="who" hidden><span id="whoName"></span><button class="btn small" id="whoSwitch">Switch user</button></div>
+  <nav class="tabs" role="tablist" id="tabs">
+    <button role="tab" id="tab-capture" aria-selected="true"><span class="n">1</span>Capture</button>
+    <button role="tab" id="tab-map" aria-selected="false"><span class="n">2</span>Work Map <span class="badge" id="mapBadge" hidden></span></button>
+    <button role="tab" id="tab-teach" aria-selected="false"><span class="n">3</span>Teach</button>
+  </nav>
+</header>
+<div class="banner" id="modeBanner" hidden></div>
+
+<!-- 0. WELCOME -->
+<main id="view-welcome" hidden>
+  <section class="pane welcome">
+    <h1>Welcome to Heirloom</h1>
+    <p class="lead">Tell the apprentice who you are, so it can talk to you by name.</p>
+    <form id="wForm" novalidate>
+      <label for="wName">Your name</label>
+      <input id="wName" autocomplete="name" placeholder="e.g. Amani">
+      <span class="err" id="wNameErr"></span>
+      <label for="wEmail">Email</label>
+      <input id="wEmail" type="email" autocomplete="email" placeholder="you@company.com">
+      <span class="err" id="wEmailErr"></span>
+      <label for="wLang">Language you will speak</label>
+      <select id="wLang">
+        <option value="en-US">English</option>
+        <option value="de-DE">Deutsch</option>
+        <option value="ar-JO">العربية</option>
+      </select>
+      <fieldset class="roles">
+        <legend>I am</legend>
+        <label class="role"><input type="radio" name="role" value="expert" checked><span><b>The expert</b>The apprentice watches me work and learns why</span></label>
+        <label class="role"><input type="radio" name="role" value="learner"><span><b>The new hire</b>The tutor teaches me with the expert's Work Map</span></label>
+      </fieldset>
+      <button class="btn primary big" type="submit">Enter</button>
+      <p class="note" style="padding:0">Saved on this device only. Nothing is sent anywhere.</p>
+    </form>
+  </section>
+</main>
+
+<!-- 1. CAPTURE -->
+<main id="view-capture">
+  <div class="grid">
+    <section class="pane"><h2>Open invoices</h2><div class="list" id="cList"></div></section>
+    <section class="pane"><h2 id="cTitle">Invoice</h2><div class="form" id="cForm"></div></section>
+    <aside class="pane">
+      <h2>Apprentice <span class="count" id="cBudget"></span></h2>
+      <div class="status"><span class="dot" id="cDot"></span><span id="cStatus">Press Start to begin</span></div>
+      <div class="row" style="padding-top:12px">
+        <button class="btn primary" id="cStart">Start session</button>
+        <button class="btn" id="cShare">Share screen</button>
+        <button class="btn" id="cOff" aria-pressed="false">Off the record</button>
+      </div>
+      <div id="cSlot"></div>
+      <div class="answer" id="cAnswerRow" hidden><button class="btn mic" id="cMic" aria-pressed="false"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5"/></svg><span>Talk</span></button><input id="cAnswer" placeholder="Tap Talk or type your answer"><button class="btn" id="cSend">Send</button></div>
+      <p class="note" id="cMicNote" hidden></p>
+      <div class="log" id="cLog" aria-live="polite"></div>
+      <div class="row" style="padding-top:12px">
+        <button class="btn" id="cForget">Forget last 2 min</button>
+        <button class="btn primary" id="cFinish">Finish task, build Work Map</button>
+      </div>
+      <p class="note">Screen data stays as events. Emails, IBANs and phone numbers are redacted before anything leaves the browser.</p>
+    </aside>
+  </div>
+</main>
+
+<!-- 2. WORK MAP -->
+<main id="view-map" hidden>
+  <div class="grid two">
+    <section class="pane">
+      <div class="wm-head">
+        <h1 id="wmTitle">No Work Map yet</h1>
+        <div class="stats" id="wmStats"></div>
+        <div class="actions">
+          <button class="btn primary" id="wmDebrief">Start debrief</button>
+          <button class="btn" id="wmSample">Load the sample map (Sabine)</button>
+          <button class="btn" id="wmExport">Export for AI agents</button>
+        </div>
+      </div>
+      <ol class="timeline" id="wmTimeline"></ol>
+      <textarea class="export" id="wmExportBox" readonly hidden></textarea>
+    </section>
+    <aside class="pane">
+      <h2>Step detail</h2>
+      <div class="detail" id="wmDetail"><p class="note" style="padding:0">Finish a capture session or load the sample map.</p></div>
+      <div id="wmDebriefBox" hidden>
+        <h2 style="border-top:1px solid var(--line)">Debrief <span class="count" id="dbStatus"></span></h2>
+        <div class="status"><span class="dot" id="dbDot"></span><span id="dbText">Ready</span></div>
+        <div id="dbQuestions"></div>
+        <p class="teachback" id="dbTeachback"></p>
+        <div class="answer"><button class="btn mic" id="dbMic" aria-pressed="false"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5"/></svg><span>Talk</span></button><span class="note" style="padding:0;align-self:center" id="dbMicNote">Answer out loud: fills the next empty answer</span></div>
+        <div class="row" id="dbConfirmRow">
+          <input id="dbCorrection" placeholder="Correction, if any">
+          <button class="btn" id="dbCorrect">Correct</button>
+          <button class="btn primary" id="dbConfirm">Yes, that is how it works</button>
+        </div>
+      </div>
+    </aside>
+  </div>
+</main>
+
+<!-- 3. TEACH -->
+<main id="view-teach" hidden>
+  <div class="grid">
+    <section class="pane"><h2>New hire queue</h2><div class="list" id="tList"></div></section>
+    <section class="pane"><h2 id="tTitle">Invoice</h2><div class="form" id="tForm"></div></section>
+    <aside class="pane">
+      <h2>Tutor</h2>
+      <div class="status"><span class="dot" id="tDot"></span><span id="tStatus">Press Start to practise</span></div>
+      <div class="row" style="padding-top:12px">
+        <button class="btn primary" id="tStart">Start tutor</button>
+        <button class="btn" id="tReset">New practice round</button>
+      </div>
+      <div id="tSlot"></div>
+      <div class="answer" id="tAnswerRow" hidden><button class="btn mic" id="tMic" aria-pressed="false"><svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10a7 7 0 0 0 14 0M12 17v5"/></svg><span>Talk</span></button><input id="tAnswer" placeholder="Tap Talk or type your answer"><button class="btn" id="tSend">Send</button></div>
+      <p class="note" id="tMicNote" hidden></p>
+      <div class="mastery" id="tMastery"></div>
+      <div class="log" id="tLog"></div>
+    </aside>
+  </div>
+</main>
+
+<script src="config.js"></script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
