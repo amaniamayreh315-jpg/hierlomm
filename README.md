@@ -1,6 +1,10 @@
 # Heirloom
 
-**The AI apprentice that learns why.** Hack-Nation × ElevenLabs, Challenge 01: The AI Apprentice.
+**The AI apprentice that learns why.**
+
+**Live demo:** https://amaniamayreh315-jpg.github.io/hierlomm/
+
+ Hack-Nation × ElevenLabs, Challenge 01: The AI Apprentice.
 
 Heirloom watches an expert do real screen work, asks *why* at natural pauses, runs a short spoken debrief until the expert confirms "yes, that's how it works", turns it into a clickable **Work Map**, and then coaches a new hire on their own screen, stepping in before a guardrail is broken.
 
