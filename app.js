@@ -84,7 +84,7 @@ const Voice = {
       ...(s.signedUrl ? { signedUrl: s.signedUrl } : { agentId: s.agentId }),
       dynamicVariables: { phase, context, expert_name: phase === "tutor" ? TE() : CONFIG.expert, learner_name: CONFIG.learner || "there", first_message: first },
       clientTools: tools,
-      onMessage: m => onLine?.(m.source === "ai" ? "agent" : "user", m.message),
+      onMessage: m => { if (m.source !== "ai" && /^\s*\[/.test(m.message || "")) return; onLine?.(m.source === "ai" ? "agent" : "user", m.message); },
       onModeChange: m => { this.speaking = m.mode === "speaking"; onMode?.(this.speaking); },
       onError: e => console.error("Voice error", e),
       onDisconnect: () => { this.convo = null; this.speaking = false; }
@@ -300,6 +300,7 @@ function onCapLine(who, text) {
   logRow($("cLog"), line.t, `${line.speaker}: ${line.text}`, "said");
   if (who === "user") {
     cap.last = Date.now();
+    if (Voice.convo) guide(guideKey === "e3" ? "e4" : guideKey === "e5" ? "e6" : guideKey);
     // Already explained out loud? Then the screen + transcript answer it: skip the question.
     if (cap.pending && /because|always|never|every|weil|immer|nie|rule|limit|policy/i.test(text)) cap.pending.explained = true;
   }
